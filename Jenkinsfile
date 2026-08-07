@@ -27,9 +27,11 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 sh '''
-                    docker rm -f jastl-devops-app || true
+                    docker ps -aq --filter "name=^jastl-devops-app$" | xargs -r docker rm -f
 
-                    docker run -d \
+                    sleep 2
+
+                        docker run -d \
                         --name jastl-devops-app \
                         --restart unless-stopped \
                         -p 8085:5000 \
