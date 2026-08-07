@@ -24,6 +24,30 @@ pipeline {
             }
         }
 
+        stage('Push to GHCR') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-pat',
+                    usernameVariable: 'GITHUB_USER',
+                    passwordVariable: 'GITHUB_TOKEN'
+                )]) {
+
+                    sh '''
+                        echo "$GITHUB_TOKEN" | docker login ghcr.io \
+                          -u "$GITHUB_USER" \
+                          --password-stdin
+
+                        docker tag jastl-devops:latest \
+                            ghcr.io/taymie-biyi/jastl-devops:latest
+
+                        docker push ghcr.io/taymie-biyi/jastl-devops:latest
+
+                        docker logout ghcr.io
+                    '''
+                }
+            }
+        }
+
         stage('Deploy Container') {
             steps {
                 sh '''
