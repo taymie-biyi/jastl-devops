@@ -42,7 +42,7 @@ pipeline {
             }
         }
 
-        stage('Push Image') {
+        stage('Push Image to GHCR') {
             steps {
                 sh '''
                     docker push ghcr.io/taymie-biyi/jastl-devops:${BUILD_NUMBER}
@@ -51,36 +51,30 @@ pipeline {
             }
         }
 
-        stage('Deploy Container') {
+        stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                    docker ps -aq \
-                        --filter "name=^jastl-devops-app$" \
-                        | xargs -r docker rm -f
-
-                    sleep 2
-
-                    docker pull ghcr.io/taymie-biyi/jastl-devops:latest
-
-                    docker run -d \
-                        --name jastl-devops-app \
-                        --restart unless-stopped \
-                        -p 8085:5000 \
-                        ghcr.io/taymie-biyi/jastl-devops:latest
-                '''
+                sshagent(credentials: ['k3s-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no \
+                            jastlvm@192.168.59.68 \
+                            "sudo kubectl rollout restart deployment/jastl-devops && \
+                             sudo kubectl rollout status deployment/jastl-devops --timeout=120s"
+                    '''
+                }
             }
         }
 
-        stage('Verify Deployment') {
+        stage('Verify Kubernetes Deployment') {
             steps {
-                sh '''
-                    sleep 5
-
-                    docker ps --filter name=jastl-devops-app
-
-                    docker exec jastl-devops-app \
-                        python -c "import urllib.request; r=urllib.request.urlopen('http://localhost:5000'); print('HTTP Status:', r.status)"
-                '''
+                sshagent(credentials: ['k3s-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no \
+                            jastlvm@192.168.59.68 \
+                            "sudo kubectl get deployment jastl-devops && \
+                             sudo kubectl get pods -o wide -l app=jastl-devops && \
+                             curl -f http://192.168.59.68:30085"
+                    '''
+                }
             }
         }
 
@@ -95,7 +89,7 @@ pipeline {
 
     post {
         success {
-            echo 'JASTL DevOps deployment completed successfully.'
+            echo 'JASTL DevOps Kubernetes deployment completed successfully.'
         }
 
         failure {
