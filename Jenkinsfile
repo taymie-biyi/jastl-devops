@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     stages {
 
         stage('Checkout') {
@@ -12,25 +16,38 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t jastl-devops .'
+                sh '''
+                    docker build \
+                    -t jastl-devops:${BUILD_NUMBER} \
+                    -t jastl-devops:latest .
+                '''
             }
         }
 
         stage('Deploy Container') {
             steps {
                 sh '''
-                    docker rm -f jastl-web || true
+                    docker rm -f jastl-devops-app || true
+
                     docker run -d \
-                        --name jastl-web \
-                        -p 8085:80 \
-                        jastl-devops
+                        --name jastl-devops-app \
+                        --restart unless-stopped \
+                        -p 8085:5000 \
+                        jastl-devops:latest
                 '''
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh 'curl -f http://localhost:8085'
+                sh '''
+                    sleep 5
+
+                    docker ps --filter name=jastl-devops-app
+
+                    docker exec jastl-devops-app \
+                    python -c "import urllib.request; r=urllib.request.urlopen('http://localhost:5000'); print('HTTP Status:', r.status)"
+                '''
             }
         }
     }
