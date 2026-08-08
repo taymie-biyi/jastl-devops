@@ -55,10 +55,9 @@ pipeline {
             steps {
                 sshagent(credentials: ['k3s-ssh']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no \
-                            jastlvm@192.168.59.68 \
-                            "sudo kubectl rollout restart deployment/jastl-devops && \
-                             sudo kubectl rollout status deployment/jastl-devops --timeout=120s"
+                        ssh -o StrictHostKeyChecking=no jastlvm@192.168.59.68 \
+                        "sudo -n /usr/local/bin/kubectl rollout restart deployment/jastl-devops && \
+                        sudo -n /usr/local/bin/kubectl rollout status deployment/jastl-devops --timeout=120s"
                     '''
                 }
             }
